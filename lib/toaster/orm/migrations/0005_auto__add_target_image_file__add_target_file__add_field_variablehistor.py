@@ -49,11 +49,6 @@ class Migration(SchemaMigration):
         # Deleting field 'Build.image_fstypes'
         db.delete_column(u'orm_build', 'image_fstypes')
 
-        # Adding field 'Build.timespent'
-        db.add_column(u'orm_build', 'timespent',
-                      self.gf('django.db.models.fields.IntegerField')(default=0),
-                      keep_default=False)
-
         # Adding field 'LogMessage.task'
         db.add_column(u'orm_logmessage', 'task',
                       self.gf('django.db.models.fields.related.ForeignKey')(to=orm['orm.Task'], null=True, blank=True),
@@ -110,9 +105,6 @@ class Migration(SchemaMigration):
         db.add_column(u'orm_build', 'image_fstypes',
                       self.gf('django.db.models.fields.CharField')(max_length=100),
                       keep_default=False)
-
-        # Deleting field 'Build.timespent'
-        db.delete_column(u'orm_build', 'timespent')
 
         # Deleting field 'LogMessage.task'
         db.delete_column(u'orm_logmessage', 'task_id')
