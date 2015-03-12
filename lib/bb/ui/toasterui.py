@@ -108,6 +108,9 @@ def main(server, eventHandler, params ):
 
             if isinstance(event, bb.event.BuildStarted):
                 buildinfohelper.store_started_build(event)
+                build_dir = server.runCommand(["getVariable", "TOPDIR"])[0]
+                with open(os.path.join(build_dir, 'CURRENT_TOASTER_BUILD_ID'), 'a') as f:
+                    f.write(str(buildinfohelper.internal_state['build'].id))
 
             if isinstance(event, (bb.build.TaskStarted, bb.build.TaskSucceeded, bb.build.TaskFailedSilent)):
                 buildinfohelper.update_and_store_task(event)
