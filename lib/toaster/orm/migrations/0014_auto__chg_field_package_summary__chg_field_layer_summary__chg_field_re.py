@@ -12,6 +12,9 @@ class Migration(SchemaMigration):
         # Changing field 'Package.summary'
         db.alter_column(u'orm_package', 'summary', self.gf('django.db.models.fields.TextField')())
 
+        # Changing field 'Layer.summary'
+        db.alter_column(u'orm_layer', 'summary', self.gf('django.db.models.fields.TextField')(null=True))
+
         # Changing field 'Recipe.summary'
         db.alter_column(u'orm_recipe', 'summary', self.gf('django.db.models.fields.TextField')())
 
@@ -20,10 +23,31 @@ class Migration(SchemaMigration):
         # Changing field 'Package.summary'
         db.alter_column(u'orm_package', 'summary', self.gf('django.db.models.fields.CharField')(max_length=200))
 
+        # Changing field 'Layer.summary'
+        db.alter_column(u'orm_layer', 'summary', self.gf('django.db.models.fields.CharField')(max_length=200, null=True))
+
         # Changing field 'Recipe.summary'
         db.alter_column(u'orm_recipe', 'summary', self.gf('django.db.models.fields.CharField')(max_length=100))
 
     models = {
+        u'orm.bitbakeversion': {
+            'Meta': {'object_name': 'BitbakeVersion'},
+            'branch': ('django.db.models.fields.CharField', [], {'max_length': '32'}),
+            'dirpath': ('django.db.models.fields.CharField', [], {'max_length': '255'}),
+            'giturl': ('django.db.models.fields.URLField', [], {'max_length': '200'}),
+            u'id': ('django.db.models.fields.AutoField', [], {'primary_key': 'True'}),
+            'name': ('django.db.models.fields.CharField', [], {'unique': 'True', 'max_length': '32'})
+        },
+        u'orm.branch': {
+            'Meta': {'unique_together': "(('layer_source', 'name'), ('layer_source', 'up_id'))", 'object_name': 'Branch'},
+            'bitbake_branch': ('django.db.models.fields.CharField', [], {'max_length': '50', 'blank': 'True'}),
+            u'id': ('django.db.models.fields.AutoField', [], {'primary_key': 'True'}),
+            'layer_source': ('django.db.models.fields.related.ForeignKey', [], {'default': 'True', 'to': u"orm['orm.LayerSource']", 'null': 'True'}),
+            'name': ('django.db.models.fields.CharField', [], {'max_length': '50'}),
+            'short_description': ('django.db.models.fields.CharField', [], {'max_length': '50', 'blank': 'True'}),
+            'up_date': ('django.db.models.fields.DateTimeField', [], {'default': 'None', 'null': 'True'}),
+            'up_id': ('django.db.models.fields.IntegerField', [], {'default': 'None', 'null': 'True'})
+        },
         u'orm.build': {
             'Meta': {'object_name': 'Build'},
             'bitbake_version': ('django.db.models.fields.CharField', [], {'max_length': '50'}),
@@ -36,6 +60,7 @@ class Migration(SchemaMigration):
             u'id': ('django.db.models.fields.AutoField', [], {'primary_key': 'True'}),
             'machine': ('django.db.models.fields.CharField', [], {'max_length': '100'}),
             'outcome': ('django.db.models.fields.IntegerField', [], {'default': '2'}),
+            'project': ('django.db.models.fields.related.ForeignKey', [], {'to': u"orm['orm.Project']", 'null': 'True'}),
             'started_on': ('django.db.models.fields.DateTimeField', [], {}),
             'timespent': ('django.db.models.fields.IntegerField', [], {'default': '0'}),
             'warnings_no': ('django.db.models.fields.IntegerField', [], {'default': '0'})
@@ -49,20 +74,47 @@ class Migration(SchemaMigration):
             'text': ('django.db.models.fields.TextField', [], {})
         },
         u'orm.layer': {
-            'Meta': {'object_name': 'Layer'},
+            'Meta': {'unique_together': "(('layer_source', 'up_id'), ('layer_source', 'name'))", 'object_name': 'Layer'},
+            'description': ('django.db.models.fields.TextField', [], {'default': 'None', 'null': 'True'}),
             u'id': ('django.db.models.fields.AutoField', [], {'primary_key': 'True'}),
             'layer_index_url': ('django.db.models.fields.URLField', [], {'max_length': '200'}),
-            'local_path': ('django.db.models.fields.FilePathField', [], {'max_length': '255'}),
-            'name': ('django.db.models.fields.CharField', [], {'max_length': '100'})
+            'layer_source': ('django.db.models.fields.related.ForeignKey', [], {'default': 'None', 'to': u"orm['orm.LayerSource']", 'null': 'True'}),
+            'local_path': ('django.db.models.fields.FilePathField', [], {'default': 'None', 'max_length': '255', 'null': 'True'}),
+            'name': ('django.db.models.fields.CharField', [], {'max_length': '100'}),
+            'summary': ('django.db.models.fields.TextField', [], {'default': 'None', 'null': 'True'}),
+            'up_date': ('django.db.models.fields.DateTimeField', [], {'default': 'None', 'null': 'True'}),
+            'up_id': ('django.db.models.fields.IntegerField', [], {'default': 'None', 'null': 'True'}),
+            'vcs_url': ('django.db.models.fields.URLField', [], {'default': 'None', 'max_length': '200', 'null': 'True'}),
+            'vcs_web_file_base_url': ('django.db.models.fields.URLField', [], {'default': 'None', 'max_length': '200', 'null': 'True'})
         },
         u'orm.layer_version': {
-            'Meta': {'object_name': 'Layer_Version'},
-            'branch': ('django.db.models.fields.CharField', [], {'max_length': '50'}),
-            'build': ('django.db.models.fields.related.ForeignKey', [], {'related_name': "'layer_version_build'", 'to': u"orm['orm.Build']"}),
+            'Meta': {'unique_together': "(('layer_source', 'up_id'),)", 'object_name': 'Layer_Version'},
+            'branch': ('django.db.models.fields.CharField', [], {'max_length': '80'}),
+            'build': ('django.db.models.fields.related.ForeignKey', [], {'default': 'None', 'related_name': "'layer_version_build'", 'null': 'True', 'to': u"orm['orm.Build']"}),
             'commit': ('django.db.models.fields.CharField', [], {'max_length': '100'}),
+            'dirpath': ('django.db.models.fields.CharField', [], {'default': 'None', 'max_length': '255', 'null': 'True'}),
             u'id': ('django.db.models.fields.AutoField', [], {'primary_key': 'True'}),
             'layer': ('django.db.models.fields.related.ForeignKey', [], {'related_name': "'layer_version_layer'", 'to': u"orm['orm.Layer']"}),
-            'priority': ('django.db.models.fields.IntegerField', [], {})
+            'layer_source': ('django.db.models.fields.related.ForeignKey', [], {'default': 'None', 'to': u"orm['orm.LayerSource']", 'null': 'True'}),
+            'priority': ('django.db.models.fields.IntegerField', [], {'default': '0'}),
+            'up_branch': ('django.db.models.fields.related.ForeignKey', [], {'default': 'None', 'to': u"orm['orm.Branch']", 'null': 'True'}),
+            'up_date': ('django.db.models.fields.DateTimeField', [], {'default': 'None', 'null': 'True'}),
+            'up_id': ('django.db.models.fields.IntegerField', [], {'default': 'None', 'null': 'True'})
+        },
+        u'orm.layersource': {
+            'Meta': {'unique_together': "(('sourcetype', 'apiurl'),)", 'object_name': 'LayerSource'},
+            'apiurl': ('django.db.models.fields.CharField', [], {'default': 'None', 'max_length': '255', 'null': 'True'}),
+            u'id': ('django.db.models.fields.AutoField', [], {'primary_key': 'True'}),
+            'name': ('django.db.models.fields.CharField', [], {'max_length': '63'}),
+            'sourcetype': ('django.db.models.fields.IntegerField', [], {})
+        },
+        u'orm.layerversiondependency': {
+            'Meta': {'unique_together': "(('layer_source', 'up_id'),)", 'object_name': 'LayerVersionDependency'},
+            'depends_on': ('django.db.models.fields.related.ForeignKey', [], {'related_name': "'dependees'", 'to': u"orm['orm.Layer_Version']"}),
+            u'id': ('django.db.models.fields.AutoField', [], {'primary_key': 'True'}),
+            'layer_source': ('django.db.models.fields.related.ForeignKey', [], {'default': 'None', 'to': u"orm['orm.LayerSource']", 'null': 'True'}),
+            'layer_version': ('django.db.models.fields.related.ForeignKey', [], {'related_name': "'dependencies'", 'to': u"orm['orm.Layer_Version']"}),
+            'up_id': ('django.db.models.fields.IntegerField', [], {'default': 'None', 'null': 'True'})
         },
         u'orm.logmessage': {
             'Meta': {'object_name': 'LogMessage'},
@@ -74,10 +126,20 @@ class Migration(SchemaMigration):
             'pathname': ('django.db.models.fields.FilePathField', [], {'max_length': '255', 'blank': 'True'}),
             'task': ('django.db.models.fields.related.ForeignKey', [], {'to': u"orm['orm.Task']", 'null': 'True', 'blank': 'True'})
         },
+        u'orm.machine': {
+            'Meta': {'unique_together': "(('layer_source', 'up_id'),)", 'object_name': 'Machine'},
+            'description': ('django.db.models.fields.CharField', [], {'max_length': '255'}),
+            u'id': ('django.db.models.fields.AutoField', [], {'primary_key': 'True'}),
+            'layer_source': ('django.db.models.fields.related.ForeignKey', [], {'default': 'None', 'to': u"orm['orm.LayerSource']", 'null': 'True'}),
+            'layer_version': ('django.db.models.fields.related.ForeignKey', [], {'to': u"orm['orm.Layer_Version']"}),
+            'name': ('django.db.models.fields.CharField', [], {'max_length': '255'}),
+            'up_date': ('django.db.models.fields.DateTimeField', [], {'default': 'None', 'null': 'True'}),
+            'up_id': ('django.db.models.fields.IntegerField', [], {'default': 'None', 'null': 'True'})
+        },
         u'orm.package': {
             'Meta': {'object_name': 'Package'},
             'build': ('django.db.models.fields.related.ForeignKey', [], {'to': u"orm['orm.Build']"}),
-            'description': ('django.db.models.fields.CharField', [], {'max_length': '200', 'blank': 'True'}),
+            'description': ('django.db.models.fields.TextField', [], {'blank': 'True'}),
             u'id': ('django.db.models.fields.AutoField', [], {'primary_key': 'True'}),
             'installed_name': ('django.db.models.fields.CharField', [], {'default': "''", 'max_length': '100'}),
             'installed_size': ('django.db.models.fields.IntegerField', [], {'default': '0'}),
@@ -87,7 +149,7 @@ class Migration(SchemaMigration):
             'revision': ('django.db.models.fields.CharField', [], {'max_length': '32', 'blank': 'True'}),
             'section': ('django.db.models.fields.CharField', [], {'max_length': '80', 'blank': 'True'}),
             'size': ('django.db.models.fields.IntegerField', [], {'default': '0'}),
-            'summary': ('django.db.models.fields.CharField', [], {'blank': 'True'}),
+            'summary': ('django.db.models.fields.TextField', [], {'blank': 'True'}),
             'version': ('django.db.models.fields.CharField', [], {'max_length': '100', 'blank': 'True'})
         },
         u'orm.package_dependency': {
@@ -105,18 +167,53 @@ class Migration(SchemaMigration):
             'path': ('django.db.models.fields.FilePathField', [], {'max_length': '255', 'blank': 'True'}),
             'size': ('django.db.models.fields.IntegerField', [], {})
         },
+        u'orm.project': {
+            'Meta': {'object_name': 'Project'},
+            'bitbake_version': ('django.db.models.fields.related.ForeignKey', [], {'to': u"orm['orm.BitbakeVersion']"}),
+            'created': ('django.db.models.fields.DateTimeField', [], {'auto_now_add': 'True', 'blank': 'True'}),
+            u'id': ('django.db.models.fields.AutoField', [], {'primary_key': 'True'}),
+            'name': ('django.db.models.fields.CharField', [], {'max_length': '100'}),
+            'release': ('django.db.models.fields.related.ForeignKey', [], {'to': u"orm['orm.Release']"}),
+            'short_description': ('django.db.models.fields.CharField', [], {'max_length': '50', 'blank': 'True'}),
+            'updated': ('django.db.models.fields.DateTimeField', [], {'auto_now': 'True', 'blank': 'True'}),
+            'user_id': ('django.db.models.fields.IntegerField', [], {'null': 'True'})
+        },
+        u'orm.projectlayer': {
+            'Meta': {'object_name': 'ProjectLayer'},
+            u'id': ('django.db.models.fields.AutoField', [], {'primary_key': 'True'}),
+            'layercommit': ('django.db.models.fields.related.ForeignKey', [], {'to': u"orm['orm.Layer_Version']", 'null': 'True'}),
+            'optional': ('django.db.models.fields.BooleanField', [], {'default': 'True'}),
+            'project': ('django.db.models.fields.related.ForeignKey', [], {'to': u"orm['orm.Project']"})
+        },
+        u'orm.projecttarget': {
+            'Meta': {'object_name': 'ProjectTarget'},
+            u'id': ('django.db.models.fields.AutoField', [], {'primary_key': 'True'}),
+            'project': ('django.db.models.fields.related.ForeignKey', [], {'to': u"orm['orm.Project']"}),
+            'target': ('django.db.models.fields.CharField', [], {'max_length': '100'}),
+            'task': ('django.db.models.fields.CharField', [], {'max_length': '100', 'null': 'True'})
+        },
+        u'orm.projectvariable': {
+            'Meta': {'object_name': 'ProjectVariable'},
+            u'id': ('django.db.models.fields.AutoField', [], {'primary_key': 'True'}),
+            'name': ('django.db.models.fields.CharField', [], {'max_length': '100'}),
+            'project': ('django.db.models.fields.related.ForeignKey', [], {'to': u"orm['orm.Project']"}),
+            'value': ('django.db.models.fields.TextField', [], {'blank': 'True'})
+        },
         u'orm.recipe': {
             'Meta': {'object_name': 'Recipe'},
             'bugtracker': ('django.db.models.fields.URLField', [], {'max_length': '200', 'blank': 'True'}),
-            'description': ('django.db.models.fields.CharField', [], {'max_length': '100', 'blank': 'True'}),
+            'description': ('django.db.models.fields.TextField', [], {'blank': 'True'}),
             'file_path': ('django.db.models.fields.FilePathField', [], {'max_length': '255'}),
             'homepage': ('django.db.models.fields.URLField', [], {'max_length': '200', 'blank': 'True'}),
             u'id': ('django.db.models.fields.AutoField', [], {'primary_key': 'True'}),
+            'layer_source': ('django.db.models.fields.related.ForeignKey', [], {'default': 'None', 'to': u"orm['orm.LayerSource']", 'null': 'True'}),
             'layer_version': ('django.db.models.fields.related.ForeignKey', [], {'related_name': "'recipe_layer_version'", 'to': u"orm['orm.Layer_Version']"}),
             'license': ('django.db.models.fields.CharField', [], {'max_length': '200', 'blank': 'True'}),
             'name': ('django.db.models.fields.CharField', [], {'max_length': '100', 'blank': 'True'}),
             'section': ('django.db.models.fields.CharField', [], {'max_length': '100', 'blank': 'True'}),
-            'summary': ('django.db.models.fields.CharField', [], {'blank': 'True'}),
+            'summary': ('django.db.models.fields.TextField', [], {'blank': 'True'}),
+            'up_date': ('django.db.models.fields.DateTimeField', [], {'default': 'None', 'null': 'True'}),
+            'up_id': ('django.db.models.fields.IntegerField', [], {'default': 'None', 'null': 'True'}),
             'version': ('django.db.models.fields.CharField', [], {'max_length': '100', 'blank': 'True'})
         },
         u'orm.recipe_dependency': {
@@ -125,6 +222,20 @@ class Migration(SchemaMigration):
             'depends_on': ('django.db.models.fields.related.ForeignKey', [], {'related_name': "'r_dependencies_depends'", 'to': u"orm['orm.Recipe']"}),
             u'id': ('django.db.models.fields.AutoField', [], {'primary_key': 'True'}),
             'recipe': ('django.db.models.fields.related.ForeignKey', [], {'related_name': "'r_dependencies_recipe'", 'to': u"orm['orm.Recipe']"})
+        },
+        u'orm.release': {
+            'Meta': {'object_name': 'Release'},
+            'bitbake_version': ('django.db.models.fields.related.ForeignKey', [], {'to': u"orm['orm.BitbakeVersion']"}),
+            'branch': ('django.db.models.fields.CharField', [], {'max_length': '32'}),
+            'description': ('django.db.models.fields.CharField', [], {'max_length': '255'}),
+            u'id': ('django.db.models.fields.AutoField', [], {'primary_key': 'True'}),
+            'name': ('django.db.models.fields.CharField', [], {'unique': 'True', 'max_length': '32'})
+        },
+        u'orm.releasedefaultlayer': {
+            'Meta': {'object_name': 'ReleaseDefaultLayer'},
+            u'id': ('django.db.models.fields.AutoField', [], {'primary_key': 'True'}),
+            'layer': ('django.db.models.fields.related.ForeignKey', [], {'to': u"orm['orm.Layer']"}),
+            'release': ('django.db.models.fields.related.ForeignKey', [], {'to': u"orm['orm.Release']"})
         },
         u'orm.target': {
             'Meta': {'object_name': 'Target'},
@@ -150,7 +261,7 @@ class Migration(SchemaMigration):
         },
         u'orm.target_image_file': {
             'Meta': {'object_name': 'Target_Image_File'},
-            'file_name': ('django.db.models.fields.FilePathField', [], {'max_length': '100'}),
+            'file_name': ('django.db.models.fields.FilePathField', [], {'max_length': '254'}),
             'file_size': ('django.db.models.fields.IntegerField', [], {}),
             u'id': ('django.db.models.fields.AutoField', [], {'primary_key': 'True'}),
             'target': ('django.db.models.fields.related.ForeignKey', [], {'to': u"orm['orm.Target']"})
@@ -189,6 +300,18 @@ class Migration(SchemaMigration):
             u'id': ('django.db.models.fields.AutoField', [], {'primary_key': 'True'}),
             'task': ('django.db.models.fields.related.ForeignKey', [], {'related_name': "'task_dependencies_task'", 'to': u"orm['orm.Task']"})
         },
+        u'orm.toastersetting': {
+            'Meta': {'object_name': 'ToasterSetting'},
+            'helptext': ('django.db.models.fields.TextField', [], {}),
+            u'id': ('django.db.models.fields.AutoField', [], {'primary_key': 'True'}),
+            'name': ('django.db.models.fields.CharField', [], {'max_length': '63'}),
+            'value': ('django.db.models.fields.CharField', [], {'max_length': '255'})
+        },
+        u'orm.toastersettingdefaultlayer': {
+            'Meta': {'object_name': 'ToasterSettingDefaultLayer'},
+            u'id': ('django.db.models.fields.AutoField', [], {'primary_key': 'True'}),
+            'layer_version': ('django.db.models.fields.related.ForeignKey', [], {'to': u"orm['orm.Layer_Version']"})
+        },
         u'orm.variable': {
             'Meta': {'object_name': 'Variable'},
             'build': ('django.db.models.fields.related.ForeignKey', [], {'related_name': "'variable_build'", 'to': u"orm['orm.Build']"}),
@@ -204,7 +327,7 @@ class Migration(SchemaMigration):
             'file_name': ('django.db.models.fields.FilePathField', [], {'max_length': '255'}),
             u'id': ('django.db.models.fields.AutoField', [], {'primary_key': 'True'}),
             'line_number': ('django.db.models.fields.IntegerField', [], {'null': 'True'}),
-            'operation': ('django.db.models.fields.CharField', [], {'max_length': '16'}),
+            'operation': ('django.db.models.fields.CharField', [], {'max_length': '64'}),
             'value': ('django.db.models.fields.TextField', [], {'blank': 'True'}),
             'variable': ('django.db.models.fields.related.ForeignKey', [], {'related_name': "'vhistory'", 'to': u"orm['orm.Variable']"})
         }

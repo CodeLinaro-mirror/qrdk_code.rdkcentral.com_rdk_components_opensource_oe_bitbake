@@ -41,7 +41,7 @@ import sys
 import time
 import xmlrpclib
 
-featureSet = [bb.cooker.CookerFeatures.HOB_EXTRA_CACHES, bb.cooker.CookerFeatures.SEND_DEPENDS_TREE, bb.cooker.CookerFeatures.BASEDATASTORE_TRACKING]
+featureSet = [bb.cooker.CookerFeatures.HOB_EXTRA_CACHES, bb.cooker.CookerFeatures.SEND_DEPENDS_TREE, bb.cooker.CookerFeatures.BASEDATASTORE_TRACKING, bb.cooker.CookerFeatures.SEND_SANITYEVENTS]
 
 logger = logging.getLogger("BitBake")
 interactive = sys.stdout.isatty()
@@ -58,18 +58,14 @@ def _log_settings_from_server(server):
     if error:
         logger.error("Unable to get the value of BBINCLUDELOGS_LINES variable: %s" % error)
         raise BaseException(error)
-    return includelogs, loglines
+    consolelogfile, error = server.runCommand(["getVariable", "BB_CONSOLELOG"])
+    if error:
+        logger.error("Unable to get the value of BB_CONSOLELOG variable: %s" % error)
+        raise BaseException(error)
+    return includelogs, loglines, consolelogfile
+
 
 def main(server, eventHandler, params ):
-
-    includelogs, loglines = _log_settings_from_server(server)
-
-    # verify and warn
-    build_history_enabled = True
-    inheritlist, error = server.runCommand(["getVariable", "INHERIT"])
-    if not "buildhistory" in inheritlist.split(" "):
-        logger.warn("buildhistory is not enabled. Please enable INHERIT += \"buildhistory\" to see image details.")
-        build_history_enabled = False
 
     helper = uihelper.BBUIHelper()
 
@@ -79,6 +75,16 @@ def main(server, eventHandler, params ):
     bb.msg.addDefaultlogFilter(console)
     console.setFormatter(format)
     logger.addHandler(console)
+
+    includelogs, loglines, consolelogfile = _log_settings_from_server(server)
+
+    # verify and warn
+    build_history_enabled = True
+    inheritlist, error = server.runCommand(["getVariable", "INHERIT"])
+
+    if not "buildhistory" in inheritlist.split(" "):
+        logger.warn("buildhistory is not enabled. Please enable INHERIT += \"buildhistory\" to see image details.")
+        build_history_enabled = False
 
     if not params.observe_only:
         logger.error("ToasterUI can only work in observer mode")
@@ -91,13 +97,26 @@ def main(server, eventHandler, params ):
     errors = 0
     warnings = 0
     taskfailures = []
+    first = True
 
     buildinfohelper = BuildInfoHelper(server, build_history_enabled)
+
+    if buildinfohelper.brbe is not None and consolelogfile:
+        # if we are under managed mode we have no other UI and we need to write our own file
+        bb.utils.mkdirhier(os.path.dirname(consolelogfile))
+        conlogformat = bb.msg.BBLogFormatter(format_str)
+        consolelog = logging.FileHandler(consolelogfile)
+        bb.msg.addDefaultlogFilter(consolelog)
+        consolelog.setFormatter(conlogformat)
+        logger.addHandler(consolelog)
 
 
     while True:
         try:
             event = eventHandler.waitEvent(0.25)
+            if first:
+                first = False
+                logger.info("ToasterUI waiting for events")
 
             if event is None:
                 if main.shutdown > 0:
@@ -114,7 +133,11 @@ def main(server, eventHandler, params ):
 
             if isinstance(event, (bb.build.TaskStarted, bb.build.TaskSucceeded, bb.build.TaskFailedSilent)):
                 buildinfohelper.update_and_store_task(event)
+                logger.warn("Logfile for task %s" % event.logfile)
                 continue
+
+            if isinstance(event, bb.build.TaskBase):
+                logger.info(event._message)
 
             if isinstance(event, bb.event.LogExecTTY):
                 logger.warn(event.msg)
@@ -161,7 +184,12 @@ def main(server, eventHandler, params ):
             if isinstance(event, bb.event.CacheLoadCompleted):
                 continue
             if isinstance(event, bb.event.MultipleProviders):
+                logger.info("multiple providers are available for %s%s (%s)", event._is_runtime and "runtime " or "",
+                            event._item,
+                            ", ".join(event._candidates))
+                logger.info("consider defining a PREFERRED_PROVIDER entry to match %s", event._item)
                 continue
+
             if isinstance(event, bb.event.NoProvider):
                 return_value = 1
                 errors = errors + 1
@@ -219,21 +247,34 @@ def main(server, eventHandler, params ):
             if isinstance(event, (bb.command.CommandCompleted,
                                   bb.command.CommandFailed,
                                   bb.command.CommandExit)):
+                errorcode = 0
                 if (isinstance(event, bb.command.CommandFailed)):
                     event.levelno = format.ERROR
-                    event.msg = event.error
+                    event.msg = "Command Failed " + event.error
                     event.pathname = ""
                     event.lineno = 0
                     buildinfohelper.store_log_event(event)
                     errors += 1
+                    errorcode = 1
+                    logger.error("Command execution failed: %s", event.error)
 
                 buildinfohelper.update_build_information(event, errors, warnings, taskfailures)
+                buildinfohelper.close(errorcode)
+                # mark the log output; controllers may kill the toasterUI after seeing this log
+                logger.info("ToasterUI build done")
 
                 # we start a new build info
-                errors = 0
-                warnings = 0
-                taskfailures = []
-                buildinfohelper = BuildInfoHelper(server, build_history_enabled)
+                if buildinfohelper.brbe is not None:
+
+                    logger.debug(1, "ToasterUI under BuildEnvironment management - exiting after the build")
+                    server.terminateServer()
+                else:
+                    logger.debug(1, "ToasterUI prepared for new build")
+                    errors = 0
+                    warnings = 0
+                    taskfailures = []
+                    buildinfohelper = BuildInfoHelper(server, build_history_enabled)
+
                 continue
 
             if isinstance(event, bb.event.MetadataEvent):
@@ -249,8 +290,12 @@ def main(server, eventHandler, params ):
                     buildinfohelper.store_missed_state_tasks(event)
                 elif event.type == "ImageFileSize":
                     buildinfohelper.update_target_image_file(event)
+                elif event.type == "ArtifactFileSize":
+                    buildinfohelper.update_artifact_image_file(event)
                 elif event.type == "LicenseManifestPath":
                     buildinfohelper.store_license_manifest_path(event)
+                else:
+                    logger.error("Unprocessed MetadataEvent %s " % str(event))
                 continue
 
             if isinstance(event, bb.cooker.CookerExit):
@@ -283,9 +328,25 @@ def main(server, eventHandler, params ):
             main.shutdown = 1
             pass
         except Exception as e:
-            logger.error(e)
+            # print errors to log
             import traceback
-            traceback.print_exc()
+            from pprint import pformat
+            exception_data = traceback.format_exc()
+            logger.error("%s\n%s" % (e, exception_data))
+
+            exc_type, exc_value, tb = sys.exc_info()
+            if tb is not None:
+                curr = tb
+                while curr is not None:
+                    logger.warn("Error data dump %s\n%s\n" % (traceback.format_tb(curr,1), pformat(curr.tb_frame.f_locals)))
+                    curr = curr.tb_next
+
+            # save them to database, if possible; if it fails, we already logged to console.
+            try:
+                buildinfohelper.store_log_exception("%s\n%s" % (str(e), exception_data))
+            except Exception as ce:
+                logger.error("CRITICAL - Failed to to save toaster exception to the database: %s" % str(ce))
+
             pass
 
     if interrupted:
