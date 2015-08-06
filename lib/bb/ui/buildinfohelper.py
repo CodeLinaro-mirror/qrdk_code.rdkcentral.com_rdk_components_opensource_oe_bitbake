@@ -351,7 +351,7 @@ class ORMWrapper(object):
             (user, group, size) = d[1:4]
             permission = d[0][1:]
             path = d[4].lstrip(".")
-            parent_path = "/".join(path.split("/")[:len(path.split("/")) - 1])
+            parent_path = "/".join(path.split("/")[:len(path.split("/")) - 1]) or "/"
             inodetype = Target_File.ITYPE_REGULAR
             if d[0].startswith('b'):
                 inodetype = Target_File.ITYPE_BLOCK
@@ -379,7 +379,7 @@ class ORMWrapper(object):
             path = d[4].lstrip(".")
             filetarget_path = d[6]
 
-            parent_path = "/".join(path.split("/")[:len(path.split("/")) - 1])
+            parent_path = "/".join(path.split("/")[:len(path.split("/")) - 1]) or "/"
             if not filetarget_path.startswith("/"):
                 # we have a relative path, get a normalized absolute one
                 filetarget_path = parent_path + "/" + filetarget_path
@@ -419,8 +419,12 @@ class ORMWrapper(object):
         errormsg = ""
         for p in packagedict:
             searchname = p
-            if 'OPKGN' in pkgpnmap[p].keys():
-                searchname = pkgpnmap[p]['OPKGN']
+
+            try:
+                if 'OPKGN' in pkgpnmap[p].keys():
+                    searchname = pkgpnmap[p]['OPKGN']
+            except KeyError as e:
+                errormsg += "  stpi: Key error, package %s key %s \n" % ( p, e )
 
             packagedict[p]['object'], created = Package.objects.get_or_create( build = build_obj, name = searchname )
             if created or packagedict[p]['object'].size == -1:    # save the data anyway we can, not just if it was not created here; bug [YOCTO #6887]
