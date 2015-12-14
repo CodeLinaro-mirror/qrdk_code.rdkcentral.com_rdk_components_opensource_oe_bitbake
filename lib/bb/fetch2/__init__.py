@@ -1386,7 +1386,7 @@ class Fetch(object):
 
         return local
 
-    def download(self, urls = []):
+    def download(self, urls = [], warn_only = False):
         """
         Fetch all urls
         """
@@ -1452,7 +1452,7 @@ class Fetch(object):
                         localpath = try_mirrors (self.d, ud, mirrors)
 
                 if not localpath or ((not os.path.exists(localpath)) and localpath.find("*") == -1):
-                    if firsterr:
+                    if firsterr and not warn_only:
                         logger.error(str(firsterr))
                     raise FetchError("Unable to fetch URL from any source.", u)
 
