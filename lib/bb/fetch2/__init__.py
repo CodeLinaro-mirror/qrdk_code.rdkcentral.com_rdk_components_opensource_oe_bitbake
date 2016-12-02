@@ -39,6 +39,7 @@ import bb.checksum
 from bb import data
 import bb.process
 import subprocess
+import errno
 
 __version__ = "2"
 _checksum_cache = bb.checksum.FileChecksumCache()
@@ -801,6 +802,12 @@ def try_mirror_url(origud, ud, ld, check = False):
             ud.method.download(ud, ld)
             if hasattr(ud.method,"build_mirror_data"):
                 ud.method.build_mirror_data(ud, ld)
+        try:
+             mysize = os.stat(ud.localpath).st_size
+        except OSError as e:
+            if e.errno in (errno.ESTALE):
+                return False
+            del e
 
         if not ud.localpath or not os.path.exists(ud.localpath):
             return False
