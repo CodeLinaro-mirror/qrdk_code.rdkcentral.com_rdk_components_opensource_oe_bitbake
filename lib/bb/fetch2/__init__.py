@@ -802,12 +802,6 @@ def try_mirror_url(origud, ud, ld, check = False):
             ud.method.download(ud, ld)
             if hasattr(ud.method,"build_mirror_data"):
                 ud.method.build_mirror_data(ud, ld)
-        try:
-             mysize = os.stat(ud.localpath).st_size
-        except OSError as e:
-            if e.errno in (errno.ESTALE):
-                return False
-            del e
 
         if not ud.localpath or not os.path.exists(ud.localpath):
             return False
@@ -840,8 +834,14 @@ def try_mirror_url(origud, ud, ld, check = False):
         update_stamp(origud, ld)
         return ud.localpath
 
+
     except bb.fetch2.NetworkAccess:
         raise
+
+    except OSError as e:
+        if e.errno in (errno.ESTALE):
+            logger.warn("Stale Error Observed %s." % ud.url)
+            return False
 
     except bb.fetch2.BBFetchException as e:
         if isinstance(e, ChecksumError):
