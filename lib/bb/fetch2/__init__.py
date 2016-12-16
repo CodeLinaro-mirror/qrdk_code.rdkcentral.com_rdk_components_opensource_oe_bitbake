@@ -838,10 +838,13 @@ def try_mirror_url(origud, ud, ld, check = False):
     except bb.fetch2.NetworkAccess:
         raise
 
-    except OSError as e:
-        if e.errno in (errno.ESTALE):
+    except IOError as e:
+        if e.errno in [os.errno.ESTALE]:
             logger.warn("Stale Error Observed %s." % ud.url)
             return False
+
+        raise
+
 
     except bb.fetch2.BBFetchException as e:
         if isinstance(e, ChecksumError):
