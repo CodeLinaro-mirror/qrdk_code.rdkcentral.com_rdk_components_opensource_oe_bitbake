@@ -1468,6 +1468,11 @@ class Fetch(object):
 
                 update_stamp(ud, self.d)
 
+            except IOError as e:
+                if e.errno in [os.errno.ESTALE]:
+                    logger.error("Stale Error Observed %s." % u)
+                    raise ChecksumError("Stale Error Detected")
+
             except BBFetchException as e:
                 if isinstance(e, ChecksumError):
                     logger.error("Checksum failure fetching %s" % u)
