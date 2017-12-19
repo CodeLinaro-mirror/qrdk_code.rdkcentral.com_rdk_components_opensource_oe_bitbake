@@ -227,6 +227,7 @@ def emit_var(var, o=sys.__stdout__, d = init(), all=False):
 
     if func:
         # NOTE: should probably check for unbalanced {} within the var
+        val = val.rstrip('\n')
         o.write("%s() {\n%s\n}\n" % (varExpanded, val))
         return 1
 
@@ -269,7 +270,13 @@ def exported_vars(d):
 def emit_func(func, o=sys.__stdout__, d = init()):
     """Emits all items in the data store in a format such that it can be sourced by a shell."""
 
-    keys = (key for key in d.keys() if not key.startswith("__") and not d.getVarFlag(key, "func"))
+    o.write('\n')
+    keys = sorted(key for key in d.keys() if not key.startswith("__") and not d.getVarFlag(key, "func", False) and not d.getVarFlag(key, 'unexport', False))
+    for key in keys:
+        emit_var(key, o, d, False)
+
+    o.write('\n')
+    keys = sorted(key for key in d.keys() if not key.startswith("__") and not d.getVarFlag(key, "func", False) and d.getVarFlag(key, 'unexport', False))
     for key in keys:
         emit_var(key, o, d, False)
 
