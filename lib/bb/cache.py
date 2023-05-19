@@ -12,6 +12,8 @@
 # Copyright (C) 2003 - 2005 Michael 'Mickey' Lauer
 # Copyright (C) 2005        Holger Hans Peter Freyther
 # Copyright (C) 2005        ROAD GmbH
+# May 2023    sirasanagandla.sandhyarani@ltts.com(from arjun_daasuramdass@comcast.com) "_" should be allowed to override a variable.
+
 #
 # SPDX-License-Identifier: GPL-2.0-only
 #
@@ -54,12 +56,12 @@ class RecipeInfoCommon(object):
 
     @classmethod
     def pkgvar(cls, var, packages, metadata):
-        return dict((pkg, cls.depvar("%s:%s" % (var, pkg), metadata))
+        return dict((pkg, cls.depvar("%s_%s" % (var, pkg), metadata))
                     for pkg in packages)
 
     @classmethod
     def taskvar(cls, var, tasks, metadata):
-        return dict((task, cls.getvar("%s:task-%s" % (var, task), metadata))
+        return dict((task, cls.getvar("%s_task-%s" % (var, task), metadata))
                     for task in tasks)
 
     @classmethod
